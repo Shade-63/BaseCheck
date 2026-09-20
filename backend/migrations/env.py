@@ -5,33 +5,32 @@ from sqlalchemy import pool
 
 from alembic import context
 
-import sys                                                                                                                                               
-from pathlib import Path                                                                                                                                 
-from logging.config import fileConfig                                                                                                                    
-                                                                                                                                                         
-from sqlalchemy import engine_from_config                                                                                                                
-from sqlalchemy import pool                                                                                                                              
-                                                                                                                                                         
-from alembic import context                                                                                                                              
-                                                                                                                                                         
-# 1. Add project root to sys.path so Python can find 'backend' modules                                                                                   
-sys.path.insert(0, str(Path(__file__).resolve().parents[2]))                                                                                             
-                                                                                                                                                         
-from backend.app.config import settings                                                                                                                  
-from backend.app.database import Base                                                                                                                    
-                                                                                                                                                         
-# this is the Alembic Config object                                                                                                                      
-config = context.config                                                                                                                                  
-                                                                                                                                                         
-# 2. Overwrite sqlalchemy.url with your .env DATABASE_URL                                                                                                
-config.set_main_option("sqlalchemy.url", settings.DATABASE_URL)                                                                                          
-                                                                                                                                                         
-# Interpret the config file for Python logging.                                                                                                          
-if config.config_file_name is not None:                                                                                                                  
-    fileConfig(config.config_file_name)                                                                                                                  
-                                                                                                                                                         
-# 3. Set target_metadata so Alembic can detect models                                                                                                    
-target_metadata = Base.metadata 
+import sys
+from pathlib import Path
+from logging.config import fileConfig
+
+from sqlalchemy import engine_from_config
+from sqlalchemy import pool
+
+from alembic import context
+# 1. Add project root to sys.path so Python can find 'backend' modules
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+
+from backend.app.config import settings
+from backend.app.database import Base
+import backend.app.models
+# this is the Alembic Config object
+config = context.config
+
+# 2. Overwrite sqlalchemy.url with your .env DATABASE_URL
+config.set_main_option("sqlalchemy.url", settings.DATABASE_URL)
+
+# Interpret the config file for Python logging.
+if config.config_file_name is not None:
+    fileConfig(config.config_file_name)
+
+# 3. Set target_metadata so Alembic can detect models
+target_metadata = Base.metadata
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
 config = context.config
