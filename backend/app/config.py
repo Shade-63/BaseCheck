@@ -10,6 +10,12 @@ class Settings(BaseSettings):
     DEBUG: bool = True
     DATABASE_URL: str
 
+    #JWT Auth
+    JWT_SECRET_KEY: str
+    JWT_ALGORITHM: str = "HS256"
+    ACCESS_TOKEN_EXPIRE_TIME: int = 30
+    REFRESH_TOKEN_EXPIRE_DAYS: int = 7
+
     model_config = SettingsConfigDict(
         env_file=ENV_PATH,
         env_file_encoding="utf-8",
