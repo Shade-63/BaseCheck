@@ -1,5 +1,5 @@
 from fastapi import FastAPI
-from backend.app.routers import auth
+from backend.app.routers import auth, keys
 
 app = FastAPI(
     title= "BaseCheck API",
@@ -9,6 +9,7 @@ app = FastAPI(
 
 #router inclusion
 app.include_router(auth.router)
+app.include_router(keys.router)
 
 @app.get("/health", tags=["Health"])
 async def health_check():
