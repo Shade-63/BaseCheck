@@ -10,6 +10,8 @@ from backend.app.schemas.auth import (
     TokenRefreshRequest,
 )
 from backend.app.services import auth_service
+from backend.app.models.user import User
+from backend.app.core.dependencies import get_current_user
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
@@ -46,3 +48,10 @@ def refresh_token(request: TokenRefreshRequest, db: Session = Depends(get_db)):
         db=db, refresh_token_str=request.refresh_token
     )
 
+@router.get(
+    "/me",
+    response_model=UserResponse,
+    summary="Get profile of the current logged-in user"
+)
+def get_me(current_user: User= Depends(get_current_user)):
+    return current_user
