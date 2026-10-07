@@ -4,13 +4,30 @@ import dns.asyncresolver
 import dns.resolver
 
 from backend.app.utils.grading import score_to_grade
+from backend.app.utils.validation import validate_target
 
 
 async def check_dns(domain: str, timeout: float = 8.0) -> Dict[str, Any]:
     """
     Asynchronously inspects SPF and DMARC DNS records for email spoofing protection.
+    Includes SSRF validation.
     """
-    clean_domain = domain.replace("https://", "").replace("http://", "").split("/")[0].split(":")[0]
+    try:
+        _, clean_domain = validate_target(domain)
+    except ValueError as val_err:
+        return {
+            "check_type": "dns",
+            "score": 0.0,
+            "grade": "F",
+            "passed": False,
+            "details": {
+                "domain_tested": domain,
+                "spf": {"present": False, "status": "error"},
+                "dmarc": {"present": False, "status": "error"},
+                "recommendations": [],
+                "warnings": [str(val_err)],
+            },
+        }
 
     resolver = dns.asyncresolver.Resolver()
     resolver.timeout = timeout

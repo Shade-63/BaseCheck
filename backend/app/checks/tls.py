@@ -1,21 +1,36 @@
-import asyncio
+﻿import asyncio
 import ssl
 import socket
 from datetime import datetime, timezone
 from typing import Dict, Any
 
 from backend.app.utils.grading import score_to_grade
+from backend.app.utils.validation import validate_target
 
-async def check_tls(domain: str, port: int=443, timeout: float = 10.0) -> Dict[str, Any]:
-    """Asynchronously inspects the TLS/SSL configs and certi of the domain"""
-    
-    #clean domain(remove the protocols or paths if passed)
-    clean_domain = domain.replace("https://", "").replace("http://","").split("/")[0].split(":")[0]
+
+async def check_tls(domain: str, port: int = 443, timeout: float = 10.0) -> Dict[str, Any]:
+    """
+    Asynchronously inspects the TLS/SSL configuration and certificate of a domain.
+    Includes SSRF validation.
+    """
+    try:
+        _, clean_domain = validate_target(domain)
+    except ValueError as val_err:
+        return {
+            "check_type": "tls",
+            "score": 0.0,
+            "grade": "F",
+            "passed": False,
+            "details": {
+                "valid": False,
+                "error": str(val_err),
+                "warnings": [str(val_err)],
+            },
+        }
 
     ssl_context = ssl.create_default_context()
 
     try:
-        #run socket connection in aync loop with timeout
         loop = asyncio.get_running_loop()
 
         def _get_cert_and_protocol():
@@ -31,8 +46,6 @@ async def check_tls(domain: str, port: int=443, timeout: float = 10.0) -> Dict[s
             timeout=timeout,
         )
 
-        #parse expiry and validity
-        #date format in cert: 'May 15 12:00:00 2026 GMT'
         not_after_str = cert.get("notAfter")
         not_before_str = cert.get("notBefore")
 
@@ -43,7 +56,6 @@ async def check_tls(domain: str, port: int=443, timeout: float = 10.0) -> Dict[s
         days_remaining = (expires_at - now).days
         is_expired = now > expires_at
 
-        #Scoring logic
         score = 100.0
         warnings = []
 
@@ -52,33 +64,30 @@ async def check_tls(domain: str, port: int=443, timeout: float = 10.0) -> Dict[s
             warnings.append(f"Certificate expired {abs(days_remaining)} days ago.")
         elif days_remaining < 14:
             score -= 30.0
-            warnings.append(f"Certificate expires in {abs(days_remaining)} days. Renew Soon!")
+            warnings.append(f"Certificate expires in {days_remaining} days. Renew soon!")
         elif days_remaining < 30:
             score -= 10.0
-            warnings.append(f"Certificate expires in {abs(days_remaining)} days.")
+            warnings.append(f"Certificate expires in {days_remaining} days.")
 
-        #Protocol Scores
         if protocol == "TLSv1.3":
-            #Best
             pass
         elif protocol == "TLSv1.2":
             score -= 5.0
         else:
             score -= 40.0
-            warnings.append(f"Deprecated protocol {protocol} in use")
+            warnings.append(f"Deprecated protocol {protocol} in use.")
 
         score = max(0.0, min(100.0, score))
         grade = score_to_grade(score)
 
-        #Extracting the subject/Issuer
         issuer_dict = dict(x[0] for x in cert.get("issuer", ()))
         subject_dict = dict(x[0] for x in cert.get("subject", ()))
 
-        return{
+        return {
             "check_type": "tls",
             "score": score,
             "grade": grade,
-            "passed": score>= 70.0,
+            "passed": score >= 70.0,
             "details": {
                 "valid": not is_expired,
                 "protocol": protocol,
@@ -86,41 +95,39 @@ async def check_tls(domain: str, port: int=443, timeout: float = 10.0) -> Dict[s
                 "days_until_expiration": days_remaining,
                 "expires_at": expires_at.isoformat(),
                 "valid_from": valid_from.isoformat(),
-                "issuer": issuer_dict.get("organiztionName") or issuer_dict.get("commonName"),
+                "issuer": issuer_dict.get("organizationName") or issuer_dict.get("commonName"),
                 "subject": subject_dict.get("commonName"),
                 "warnings": warnings,
             },
         }
 
     except (ssl.SSLCertVerificationError, ssl.SSLError) as e:
-        return{
-            "check_type": "tls",
-            "score": 0.0,
-            "grade": "F",
-            "passed": False,
-            "details":{
-                "valid": False,
-                "error": f"SSl verification error: {str(e)}",
-                "warnings": ["invalid or untrusted SSL certificate"],
-            },
-        }
-
-    except (socket.timeout, asyncio.TimeoutError):
-        return{
+        return {
             "check_type": "tls",
             "score": 0.0,
             "grade": "F",
             "passed": False,
             "details": {
                 "valid": False,
-                "error": f"Connection timed out after {timeout}s while connecting to {clean_domain}: {port}",
-                "warnings": ["TLS port 443 unreachable or timed out"],
+                "error": f"SSL verification error: {str(e)}",
+                "warnings": ["Invalid or untrusted SSL certificate."],
             },
         }
-
+    except (socket.timeout, asyncio.TimeoutError):
+        return {
+            "check_type": "tls",
+            "score": 0.0,
+            "grade": "F",
+            "passed": False,
+            "details": {
+                "valid": False,
+                "error": f"Connection timed out after {timeout}s while connecting to {clean_domain}:{port}",
+                "warnings": ["TLS port 443 unreachable or timed out."],
+            },
+        }
     except Exception as e:
-        return{
-            "ccheck_type": "tls",
+        return {
+            "check_type": "tls",
             "score": 0.0,
             "grade": "F",
             "passed": False,
